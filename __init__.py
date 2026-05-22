@@ -47,13 +47,14 @@ user_site = sysconfig.get_paths(scheme, vars={"userbase": libs_path})["purelib"]
 site.addsitedir(user_site)
 
 DEPENDENCIES = ["robust_laplacian", "igl", "scipy"]
+LIBIGL_REQUIREMENT = "libigl==2.6.1" if sys.version_info >= (3, 13) else "libigl==2.5.1"
 missing_deps = []
 for module in DEPENDENCIES:
     try:
         importlib.import_module(module)
     except ImportError:
         if module == "igl":
-            missing_deps.append("libigl==2.5.1")
+            missing_deps.append(LIBIGL_REQUIREMENT)
         else:
             missing_deps.append(module)
 
@@ -277,7 +278,7 @@ class SelectNonMatched(bpy.types.Operator):
         mesh = bmesh.from_edit_mesh(obj.data)
         mesh.verts.ensure_lookup_table()
         for i, x in enumerate(selects):
-            mesh.verts[i].select_set(x)
+            mesh.verts[i].select_set(bool(x))
         mesh.select_flush(True)
         mesh.select_flush(False)
         bmesh.update_edit_mesh(obj.data, destructive=False)
@@ -457,7 +458,6 @@ class RobustWeightTransferPanel(bpy.types.Panel):
             if installed_deps:
                 col.label(text="Dependencies installed!", icon='INFO')
                 col.label(text="Restart Blender!", icon='ERROR')
-                installed_deps = True
                 return
             
             col.label(text="Blender will be unreactive while installing")
@@ -810,24 +810,24 @@ class SentFromSpacePanel(bpy.types.Panel):
 
 def register():
     # bpy.types.VIEW3D_MT_make_links.append(menu_func)
-    bpy.utils.register_class(RobustWeightTransfer)
+    bpy.utils.register_class(ObjectSettingsGroup)
+    bpy.utils.register_class(SceneSettingsGroup)
+    bpy.types.Object.robust_weight_transfer_settings = bpy.props.PointerProperty(type=ObjectSettingsGroup)
+    bpy.types.Scene.robust_weight_transfer_settings = bpy.props.PointerProperty(type=SceneSettingsGroup)
     bpy.utils.register_class(RobustWeightTransferPanel)
     if missing_deps:
         bpy.utils.register_class(InstallDependencies)
     else:
+        bpy.utils.register_class(RobustWeightTransfer)
         bpy.utils.register_class(SettingsPanel)
         bpy.utils.register_class(VertexMappingPanel)
         bpy.utils.register_class(LimitGroupsPanel)
         bpy.utils.register_class(SmoothingPanel)
-        bpy.utils.register_class(ObjectSettingsGroup)
-        bpy.utils.register_class(SceneSettingsGroup)
         bpy.utils.register_class(SelectNonMatched)
         bpy.utils.register_class(ResetSceneSettings)
         bpy.utils.register_class(UtilitiesPanel)
         bpy.utils.register_class(SmoothLimit)
         bpy.utils.register_class(Inpaint)
-        bpy.types.Object.robust_weight_transfer_settings = bpy.props.PointerProperty(type=ObjectSettingsGroup)
-        bpy.types.Scene.robust_weight_transfer_settings = bpy.props.PointerProperty(type=SceneSettingsGroup)
         
     if 'VIEW3D_PT_sent_from_space_panel' in dir(bpy.types):
         if SentFromSpacePanel.version > bpy.types.VIEW3D_PT_sent_from_space_panel.version:
@@ -840,24 +840,24 @@ def register():
     
 def unregister():
     # bpy.types.VIEW3D_MT_make_links.remove(menu_func)
-    bpy.utils.unregister_class(RobustWeightTransfer)
     bpy.utils.unregister_class(RobustWeightTransferPanel)
     if missing_deps:
         bpy.utils.unregister_class(InstallDependencies)
     else:
+        bpy.utils.unregister_class(RobustWeightTransfer)
         bpy.utils.unregister_class(SettingsPanel)
         bpy.utils.unregister_class(VertexMappingPanel)
         bpy.utils.unregister_class(LimitGroupsPanel)
         bpy.utils.unregister_class(SmoothingPanel)
-        bpy.utils.unregister_class(ObjectSettingsGroup)
-        bpy.utils.unregister_class(SceneSettingsGroup)
         bpy.utils.unregister_class(SelectNonMatched)
         bpy.utils.unregister_class(ResetSceneSettings)
         bpy.utils.unregister_class(UtilitiesPanel)
         bpy.utils.unregister_class(SmoothLimit)
         bpy.utils.unregister_class(Inpaint)
-        del bpy.types.Object.robust_weight_transfer_settings
-        del bpy.types.Scene.robust_weight_transfer_settings
+    bpy.utils.unregister_class(SceneSettingsGroup)
+    bpy.utils.unregister_class(ObjectSettingsGroup)
+    del bpy.types.Object.robust_weight_transfer_settings
+    del bpy.types.Scene.robust_weight_transfer_settings
     SentFromSpacePanel._unregister()
     
 
