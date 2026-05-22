@@ -76,7 +76,7 @@ def find_closest_point_on_surface(P, V, F):
     V2 = V[F_closest[:,1],:]
     V3 = V[F_closest[:,2],:]
 
-    B = igl.barycentric_coordinates_tri(C, V1, V2, V3)
+    B = igl.barycentric_coordinates(C, V1, V2, V3)
 
     return sqrD,I,C,B
 
@@ -187,23 +187,26 @@ def inpaint(V2, F2, W2, Matched, point_cloud):
     
     Minv = sp.sparse.diags(1 / M.diagonal()) # divide by zero?
 
-    Q2 = -L + L*Minv*L
-    Q2 = Q2.astype(np.float64)
+    Q2 = (-L + L*Minv*L).astype(np.float64).tocsc()
 
-    Aeq = sp.sparse.csc_matrix((0, 0), dtype=np.float64)
-    Beq = np.array([], dtype=np.float64)
-    B = np.zeros(shape = (L.shape[0], W2.shape[1]), dtype=np.float64)
+    n = L.shape[0]
+    k = W2.shape[1]
+    Aeq = sp.sparse.csc_matrix((0, n), dtype=np.float64)
+    Beq = np.zeros((0, k), dtype=np.float64)
+    B = np.zeros((n, k), dtype=np.float64)
 
-    b = np.array(range(0, int(V2.shape[0])), dtype=np.int64)
-    b = b[Matched]
-    bc = W2[Matched,:].astype(np.float64)
-    result, W_inpainted = igl.min_quad_with_fixed(Q2, B, b, bc, Aeq, Beq, True)
-    W_inpainted = W_inpainted.astype(np.float32)
-    # when W2 shape = (num_verts, 1), it gets flattened to (num_verts, )
-    # reshape it back to initial shape, limit_mask expects 2d array
-    if result:
-        W_inpainted = W_inpainted.reshape(W2.shape)
-    return result, W_inpainted # TODO: Add results
+    b = np.arange(n, dtype=np.int64)[Matched]
+    bc = W2[Matched, :].astype(np.float64)
+    if len(b) == 0:
+        return False, W2
+
+    try:
+        W_inpainted = igl.min_quad_with_fixed(Q2, B, b, bc, Aeq, Beq, True)
+    except RuntimeError:
+        return False, W2
+
+    W_inpainted = W_inpainted.astype(np.float32).reshape(W2.shape)
+    return True, W_inpainted
     
     
 def limit_mask(weights, adjacency_matrix, dilation_repeat=5, limit_num=4):
